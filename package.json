@@ -1,0 +1,84 @@
+{
+  "name": "jev-sdk",
+  "version": "0.1.0",
+  "description": "Provider-agnostic TypeScript SDK for TypeSafe's Jev structured-decision model. One API for TypeSafe, OpenRouter and Cloudflare Workers AI.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:live": "JEV_LIVE=1 vitest run src/live.test.ts",
+    "check:package": "publint && attw --pack . --profile node16",
+    "check": "npm run lint && npm run typecheck && npm test && npm run build && npm run check:package",
+    "changeset": "changeset",
+    "version": "changeset version && node scripts/sync-version.mjs",
+    "release": "npm run check && changeset publish",
+    "prepublishOnly": "npm run check"
+  },
+  "keywords": [
+    "jev",
+    "typesafe",
+    "typesafe-ai",
+    "system-one",
+    "openrouter",
+    "cloudflare",
+    "workers-ai",
+    "decisions",
+    "classification",
+    "routing",
+    "llm"
+  ],
+  "author": "Ying Xiang",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/geminixiang/jev-sdk.git"
+  },
+  "bugs": "https://github.com/geminixiang/jev-sdk/issues",
+  "homepage": "https://github.com/geminixiang/jev-sdk#readme",
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@biomejs/biome": "^1.9.0",
+    "@changesets/cli": "^2.27.0",
+    "@types/node": "^24",
+    "@vitest/coverage-v8": "^2.1.0",
+    "publint": "^0.2.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.0"
+  }
+}
