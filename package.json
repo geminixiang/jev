@@ -39,7 +39,6 @@
     "check": "npm run lint && npm run typecheck && npm test && npm run build && npm run check:package",
     "changeset": "changeset",
     "version": "changeset version && node scripts/sync-version.mjs",
-    "release": "npm run check && changeset publish",
     "prepublishOnly": "npm run check"
   },
   "keywords": [
