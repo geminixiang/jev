@@ -127,8 +127,10 @@ describe("auth resolution", () => {
     );
   });
 
-  it("cloudflare needs token and account id, fills the account into the URL", async () => {
-    const fetch = vi.fn<Fetch>(async () => jsonResponse({ success: true, result: { answers } }));
+  it("cloudflare needs token and account id, posts {model, input} to the unified run endpoint", async () => {
+    const fetch = vi.fn<Fetch>(async () =>
+      jsonResponse({ success: true, result: { state: "Completed", result: { answers } } }),
+    );
     const models = createBuiltinJevModels({
       authContext: env({ CLOUDFLARE_API_TOKEN: "cf", CLOUDFLARE_ACCOUNT_ID: "acct-1" }),
       fetch,
@@ -137,9 +139,10 @@ describe("auth resolution", () => {
       state: "x",
       questions,
     });
-    expect(fetch.mock.calls[0]?.[0]).toBe(
-      "https://api.cloudflare.com/client/v4/accounts/acct-1/ai/run/typesafe/jev",
-    );
+    const [url, init] = fetch.mock.calls[0]!;
+    expect(url).toBe("https://api.cloudflare.com/client/v4/accounts/acct-1/ai/run");
+    const body = JSON.parse(init?.body as string);
+    expect(body).toEqual({ model: "typesafe/jev", input: { state: "x", questions } });
 
     const noAccount = createBuiltinJevModels({
       authContext: env({ CLOUDFLARE_API_TOKEN: "cf" }),

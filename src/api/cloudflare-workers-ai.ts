@@ -2,9 +2,18 @@ import { JevAPIError, JevConfigError } from "../errors.js";
 import type { JevApiImpl } from "../types.js";
 import { type WireUsage, postJson, toAnswers, toUsage } from "./shared.js";
 
+interface InnerResult {
+  model?: string;
+  answers?: Record<string, unknown>;
+  usage?: WireUsage;
+}
+
 interface Wire {
   success?: boolean;
-  result?: { model?: string; answers?: Record<string, unknown>; usage?: WireUsage };
+  result?: {
+    state?: string;
+    result?: InnerResult;
+  };
   errors?: unknown[];
 }
 
@@ -12,7 +21,10 @@ interface Wire {
 export const CLOUDFLARE_ACCOUNT_ID_ENV = "CLOUDFLARE_ACCOUNT_ID";
 
 /**
- * Cloudflare Workers AI REST: POST {baseUrl}/accounts/{account}/ai/run/{slug}.
+ * Cloudflare's unified AI run endpoint: `POST {baseUrl}/accounts/{account}/ai/run`
+ * with `{ model, input }` in the body — third-party models like `typesafe/jev`
+ * do not take the classic `/ai/run/{model_name}` path form. The response
+ * nests the actual payload two levels deep: `{ result: { state, result: {...} } }`.
  * `{account}` in `baseUrl` is filled from `options.env.CLOUDFLARE_ACCOUNT_ID`.
  */
 export function cloudflareWorkersAiApi(): JevApiImpl<"cloudflare-workers-ai"> {
@@ -28,8 +40,8 @@ export function cloudflareWorkersAiApi(): JevApiImpl<"cloudflare-workers-ai"> {
       const base = model.baseUrl.replace(/\/+$/, "").replace("{account}", accountId);
       const raw = await postJson<Wire>(
         model.provider,
-        `${base}/ai/run/${model.slug}`,
-        { state: request.state, questions: request.questions },
+        `${base}/ai/run`,
+        { model: model.slug, input: { state: request.state, questions: request.questions } },
         {
           ...options,
           headers: {
@@ -38,14 +50,15 @@ export function cloudflareWorkersAiApi(): JevApiImpl<"cloudflare-workers-ai"> {
           },
         },
       );
-      if (!raw.success || !raw.result) {
+      const inner = raw.result?.result;
+      if (!raw.success || !inner) {
         throw new JevAPIError(model.provider, 200, raw.errors ?? raw, new Headers());
       }
       return {
         provider: model.provider,
-        model: raw.result.model ?? model.slug,
-        answers: toAnswers(model.provider, request.questions, raw.result.answers),
-        usage: toUsage(model, raw.result.usage),
+        model: inner.model ?? model.slug,
+        answers: toAnswers(model.provider, request.questions, inner.answers),
+        usage: toUsage(model, inner.usage),
         raw,
       };
     },

@@ -1,6 +1,6 @@
 {
   "name": "@geminixiang/jev",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "pi-ai-shaped SDK for TypeSafe's Jev decision model: providers with auth and catalogs, a Models collection, and typed questions/answers. Backends: TypeSafe, OpenRouter, Cloudflare Workers AI.",
   "type": "module",
   "main": "./dist/index.cjs",

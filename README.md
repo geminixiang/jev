@@ -69,7 +69,7 @@ as the [TypeSafe API](https://docs.typesafe.ai/primitives/advanced) does.
 |---|---|---|
 | `typesafe` | `api.typesafe.ai/v1/systemone` | `TYPESAFE_API_KEY` |
 | `openrouter` | `openrouter.ai/api/alpha/decisions` | `OPENROUTER_API_KEY` |
-| `cloudflare` | Workers AI REST `…/ai/run/typesafe/jev` — **unverified, see note** | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` |
+| `cloudflare` | Cloudflare's unified `…/ai/run` endpoint (third-party model) | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` |
 | `vercel` | Vercel AI Gateway evaluation modality | `AI_GATEWAY_API_KEY` (or `VERCEL_API_KEY`) |
 
 Model ids are provider-neutral (`jev-latest`, `jev-1.13`); each catalog entry carries the
@@ -112,11 +112,12 @@ models.setProvider(proxy);
 
 Implement `JevApiImpl` for a new wire protocol; the three built-in ones live under `api/`.
 
-> **Cloudflare note:** as of 2026-09 `typesafe/jev` does not appear in Workers
-> AI's model catalog and its documented run endpoint 404s / no-routes for
-> every account tested, despite an indexed docs page describing it. The
-> provider is implemented and ready, but do not depend on it until Cloudflare
-> actually lists the model.
+> **Cloudflare note:** `typesafe/jev` is a third-party model reached through
+> Cloudflare's unified `POST /accounts/{id}/ai/run` endpoint
+> (`{ model, input: { state, questions } }`), not the classic
+> `/ai/run/{model_name}` path form native `@cf/...` models use. It is listed
+> under [developers.cloudflare.com/ai/models/typesafe/jev/](https://developers.cloudflare.com/ai/models/typesafe/jev/),
+> a separate, newer catalog from the classic Workers AI models page.
 
 ## Errors
 

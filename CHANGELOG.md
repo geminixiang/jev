@@ -1,5 +1,11 @@
 # @geminixiang/jev
 
+## 0.3.1
+
+### Patch Changes
+
+- Fix the `cloudflare` provider: `typesafe/jev` is a third-party model reached through Cloudflare's unified `POST /accounts/{id}/ai/run` endpoint (`{ model, input: { state, questions } }`, response nested under `result.result`), not the classic `/ai/run/{model_name}` path form. Verified live.
+
 ## 0.3.0
 
 ### Minor Changes
