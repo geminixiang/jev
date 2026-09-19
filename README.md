@@ -23,6 +23,18 @@ answer (it rides in `providerMetadata.typesafe.confidence` on the wire; the Verc
 provider reads it and fills the same field), so treat it as possibly absent when writing
 backend-agnostic code.
 
+## Using it from Pi
+
+If you use the [Pi coding agent](https://github.com/badlogic/pi-mono),
+[`@geminixiang/pi-jev`](https://github.com/geminixiang/pi-stuff/tree/main/packages/pi-jev)
+wraps this SDK as a `jev` tool plus a skill that tells the agent when to reach for it:
+
+```sh
+pi install npm:@geminixiang/pi-jev
+```
+
+Otherwise, install this package directly.
+
 ## Install
 
 ```sh
