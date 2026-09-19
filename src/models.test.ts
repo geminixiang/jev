@@ -10,6 +10,7 @@ import {
   createBuiltinJevModels,
   createJevModels,
   createJevProvider,
+  djevProvider,
   noul,
   openrouterProvider,
   score,
@@ -329,6 +330,100 @@ describe("custom providers", () => {
     expect(openrouterProvider().id).toBe("openrouter");
     expect(cloudflareProvider().id).toBe("cloudflare");
     expect(vercelProvider().id).toBe("vercel");
+  });
+});
+
+describe("djev provider", () => {
+  it("is keyless by default and passes request extensions through on the wire", async () => {
+    const fetch = vi.fn<Fetch>(async () =>
+      jsonResponse({ model: "dgemma", answers, usage: { input_tokens: 155, output_tokens: 17 } }),
+    );
+    const models = createJevModels({ authContext: env({}), fetch });
+    models.setProvider(djevProvider({ baseUrl: "http://spark:8011" }));
+
+    expect(await models.getAvailable()).toHaveLength(1);
+
+    const result = await models.evaluate(models.getModel("djev", "jev-latest") as JevModel, {
+      state: "x",
+      questions,
+      seed: 7,
+      samples: "auto",
+      think: 64,
+      steps: 2,
+      images: ["data:image/png;base64,AAAA"],
+    });
+
+    const [url, init] = fetch.mock.calls[0]!;
+    expect(url).toBe("http://spark:8011/v1/systemone");
+    const headers = init?.headers as Record<string, string>;
+    expect(headers.Authorization).toBeUndefined();
+    const body = JSON.parse(init?.body as string);
+    expect(body.seed).toBe(7);
+    expect(body.samples).toBe("auto");
+    expect(body.think).toBe(64);
+    expect(body.steps).toBe(2);
+    expect(body.images).toEqual(["data:image/png;base64,AAAA"]);
+    expect(result.model).toBe("dgemma");
+    expect(result.usage.cost.total).toBe(0);
+  });
+
+  it("DJEV_API_KEY becomes the bearer token and DJEV_BASE_URL overrides the endpoint", async () => {
+    const fetch = vi.fn<Fetch>(async () => jsonResponse({ answers }));
+    const models = createJevModels({
+      authContext: env({ DJEV_API_KEY: "sk", DJEV_BASE_URL: "http://other:9000" }),
+      fetch,
+    });
+    models.setProvider(djevProvider());
+    await models.evaluate(models.getModel("djev", "jev-latest") as JevModel, {
+      state: "x",
+      questions,
+    });
+    const [url, init] = fetch.mock.calls[0]!;
+    expect(url).toBe("http://other:9000/v1/systemone");
+    expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer sk");
+  });
+
+  it("sends per-question dependencies and accepts null for a skipped ask_if question", async () => {
+    const fetch = vi.fn<Fetch>(async () =>
+      jsonResponse({
+        answers: {
+          ahead: {
+            type: "choice",
+            choice: "clear",
+            probabilities: { clear: 0.9, wall: 0.1 },
+            confidence: 0.9,
+          },
+          side: null,
+        },
+      }),
+    );
+    const models = createJevModels({ authContext: env({}), fetch });
+    models.setProvider(djevProvider());
+
+    const gated = {
+      ahead: choice("what's ahead?", { clear: null, wall: null }),
+      side: {
+        ...choice("which half?", { left: null, right: null }),
+        ask_if: { ahead: ["wall"] },
+      },
+    };
+    const result = await models.evaluate(models.getModel("djev", "jev-latest") as JevModel, {
+      state: "x",
+      questions: gated,
+    });
+
+    const body = JSON.parse(fetch.mock.calls[0]?.[1]?.body as string);
+    expect(body.questions.side.ask_if).toEqual({ ahead: ["wall"] });
+    expect(result.answers.ahead?.choice).toBe("clear");
+    expect(result.answers.side).toBeNull();
+  });
+
+  it("custom id allows several boxes side by side", () => {
+    const models = createJevModels();
+    models.setProvider(djevProvider({ id: "spark-a", baseUrl: "http://a:8011" }));
+    models.setProvider(djevProvider({ id: "spark-b", baseUrl: "http://b:8011" }));
+    expect(models.getModel("spark-a", "jev-latest")?.baseUrl).toBe("http://a:8011");
+    expect(models.getModel("spark-b", "jev-latest")?.baseUrl).toBe("http://b:8011");
   });
 });
 

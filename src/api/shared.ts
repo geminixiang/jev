@@ -70,9 +70,14 @@ export function toAnswers<Qs extends Questions>(
   questions: Qs,
   wire: Record<string, unknown> | undefined,
 ): Answers<Qs> {
-  const out: Record<string, Answer> = {};
+  const out: Record<string, Answer | null> = {};
   for (const name of Object.keys(questions)) {
     const raw = wire?.[name];
+    // A djev-spark server answers a skipped `ask_if` question with null.
+    if (raw === null && questions[name] && "ask_if" in questions[name]) {
+      out[name] = null;
+      continue;
+    }
     if (!raw || typeof raw !== "object") {
       throw new JevResponseError(provider, `response missing answer for "${name}"`, wire);
     }

@@ -25,7 +25,25 @@ export type Entry = string | { [key: string]: JsonValue } | JsonValue[] | null;
 // Questions
 // ---------------------------------------------------------------------------
 
-export interface NoulQuestion {
+/**
+ * Per-question dependency keys, understood by self-hosted djev-spark servers
+ * (cloud backends ignore or reject them; the built-in cloud APIs do not send
+ * them). See djev-spark's README, "Dependencies".
+ */
+export interface QuestionDependencies {
+  /** Read this question in a later stage, with these questions' answers in its prompt. */
+  depends_on?: readonly string[];
+  /**
+   * Ask only when the named question's answer is in the list (option names,
+   * level names, or "yes"/"no"). Implies `depends_on`. A skipped question's
+   * answer is `null`.
+   */
+  ask_if?: { readonly [question: string]: readonly string[] };
+  /** Read this question in a canvas of its own, beside the others in its stage. */
+  alone?: boolean;
+}
+
+export interface NoulQuestion extends QuestionDependencies {
   type: "noul";
   instructions?: Entry;
   /** Optional descriptions of the yes / no outcomes. */
@@ -35,7 +53,8 @@ export interface NoulQuestion {
 /** option id -> description (null leaves the id undescribed) */
 export type ChoiceCriteria = { readonly [option: string]: Entry };
 
-export interface ChoiceQuestion<T extends ChoiceCriteria = ChoiceCriteria> {
+export interface ChoiceQuestion<T extends ChoiceCriteria = ChoiceCriteria>
+  extends QuestionDependencies {
   type: "choice";
   instructions?: Entry;
   criteria: T;
@@ -44,7 +63,8 @@ export interface ChoiceQuestion<T extends ChoiceCriteria = ChoiceCriteria> {
 /** Ordered rubric, index 0 = lowest. At least two levels. */
 export type ScoreCriteria = readonly [Entry, Entry, ...Entry[]];
 
-export interface ScoreQuestion<T extends ScoreCriteria = ScoreCriteria> {
+export interface ScoreQuestion<T extends ScoreCriteria = ScoreCriteria>
+  extends QuestionDependencies {
   type: "score";
   instructions?: Entry;
   criteria: T;
@@ -88,12 +108,15 @@ export interface ScoreAnswer {
 
 export type Answer = NoulAnswer | ChoiceAnswer | ScoreAnswer;
 
+/** An `ask_if` question may be skipped, in which case its answer is `null`. */
+type MaybeGated<Q, A> = Q extends { ask_if: object } ? A | null : A;
+
 export type AnswerFor<Q extends Question> = Q extends NoulQuestion
-  ? NoulAnswer
+  ? MaybeGated<Q, NoulAnswer>
   : Q extends ChoiceQuestion<infer T>
-    ? ChoiceAnswer<T>
+    ? MaybeGated<Q, ChoiceAnswer<T>>
     : Q extends ScoreQuestion
-      ? ScoreAnswer
+      ? MaybeGated<Q, ScoreAnswer>
       : never;
 
 export type Answers<Qs extends Questions> = { readonly [K in keyof Qs]: AnswerFor<Qs[K]> };
@@ -102,11 +125,15 @@ export type Answers<Qs extends Questions> = { readonly [K in keyof Qs]: AnswerFo
 // Models and providers (pi-ai shaped)
 // ---------------------------------------------------------------------------
 
-export type KnownJevApi = "typesafe-systemone" | "openrouter-decisions" | "cloudflare-workers-ai";
+export type KnownJevApi =
+  | "typesafe-systemone"
+  | "openrouter-decisions"
+  | "cloudflare-workers-ai"
+  | "djev-systemone";
 /** Wire protocol id. Open so custom providers can register their own. */
 export type JevApi = KnownJevApi | (string & {});
 
-export type KnownJevProvider = "typesafe" | "openrouter" | "cloudflare";
+export type KnownJevProvider = "typesafe" | "openrouter" | "cloudflare" | "djev";
 export type JevProviderId = KnownJevProvider | (string & {});
 
 export interface JevModelCost {
@@ -130,7 +157,42 @@ export interface JevModel<TApi extends JevApi = JevApi> {
   headers?: Record<string, string>;
 }
 
-export interface JevRequest<Qs extends Questions = Questions> {
+/** An image for backends that take them (djev-spark): a data URL or a typed blob. */
+export type JevImage = string | { content_type: string; base64: string };
+
+/**
+ * Request extensions understood by self-hosted djev-spark servers, in their
+ * wire (snake_case) names so they pass through unchanged. The built-in cloud
+ * APIs do not send them; see djev-spark's README, "Extensions".
+ */
+export interface JevRequestExtensions {
+  /** Seeds the noise draws; same request + same seed = same answer. */
+  seed?: number;
+  /** Noise draws to average, or "auto" (read again while entropy is high). */
+  samples?: number | "auto";
+  /** Maximum reads under samples: "auto". */
+  auto_max?: number;
+  /** Entropy above which "auto" reads again. */
+  auto_threshold?: number;
+  /** Up to this many tokens of thought before the read; the read conditions on it. */
+  think?: number;
+  /** Context rendered ahead of the questions. */
+  instructions?: Entry;
+  /** Split a long question list into chunks of at most this many rows. */
+  chunk_rows?: number;
+  /** Whether each chunk's prompt lists only its own questions or every question. */
+  chunk_prompt?: "own" | "shared";
+  /** Run chunks in order, later answers conditioning on earlier ones. Text-only states. */
+  sequential?: boolean;
+  /** Answer only these question ids in one read; the rest are skipped. */
+  ask?: readonly string[];
+  /** Denoise steps per read. */
+  steps?: number;
+  /** Images, ahead of the state in the prompt (JSON form). */
+  images?: readonly JevImage[];
+}
+
+export interface JevRequest<Qs extends Questions = Questions> extends JevRequestExtensions {
   state: Entry;
   questions: Qs;
 }

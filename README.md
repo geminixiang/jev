@@ -83,6 +83,7 @@ as the [TypeSafe API](https://docs.typesafe.ai/primitives/advanced) does.
 | `openrouter` | `openrouter.ai/api/alpha/decisions` | `OPENROUTER_API_KEY` |
 | `cloudflare` | Cloudflare's unified `…/ai/run` endpoint (third-party model) | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` |
 | `vercel` | Vercel AI Gateway evaluation modality | `AI_GATEWAY_API_KEY` (or `VERCEL_API_KEY`) |
+| `djev` (not builtin, see below) | a self-hosted [djev-spark](https://github.com/geminixiang/djev-spark) box | keyless, or `DJEV_API_KEY` |
 
 Model ids are provider-neutral (`jev-latest`, `jev-1.13`); each catalog entry carries the
 slug its backend expects. A stored credential wins over the env var, as in pi-ai.
@@ -103,6 +104,50 @@ await models.evaluate(model, request, {
   apiKey, env, headers, signal, timeoutMs, maxRetries, fetch,   // per-call overrides
 });
 ```
+
+### Self-hosted: djev-spark
+
+[djev-spark](https://github.com/geminixiang/djev-spark) serves TypeSafe's `/v1/systemone`
+protocol from your own box (DiffusionGemma on a DGX Spark). Since a self-hosted endpoint
+has no fixed address, the provider is created explicitly rather than shipped as a builtin:
+
+```ts
+import { choice, createJevModels, djevProvider } from "@geminixiang/jev";
+
+const models = createJevModels();
+models.setProvider(djevProvider({ baseUrl: "http://spark:8011" }));
+const model = models.getModel("djev", "jev-latest")!;
+```
+
+The server is keyless unless started with `API_KEY`; then set `DJEV_API_KEY` (or pass
+`apiKey`). `DJEV_BASE_URL` in the env overrides `baseUrl`, and a custom `id` lets several
+boxes coexist: `djevProvider({ id: "spark-b", baseUrl: "http://b:8011" })`.
+
+The `djev` wire also carries the server's extensions, all optional and ignored-by-design
+on cloud providers (the built-in cloud APIs never send them):
+
+```ts
+const { answers } = await models.evaluate(model, {
+  state: { frame: "..." },
+  seed: 7,                    // reproducible reads
+  think: 64,                  // thought tokens before the read
+  samples: "auto",            // re-read while entropy is high
+  images: ["data:image/png;base64,..."],
+  questions: {
+    ahead: choice("What is ahead?", { clear: null, wall: null }),
+    side: {
+      ...choice("Which half is the obstacle in?", { left: null, right: null }),
+      ask_if: { ahead: ["wall"] },   // asked only after a "wall" answer
+    },
+  },
+});
+answers.side;   // ChoiceAnswer | null — null when the gate skipped it
+```
+
+Per-question `depends_on` / `ask_if` / `alone` and request-level `seed`, `samples`,
+`auto_max`, `auto_threshold`, `think`, `instructions`, `chunk_rows`, `chunk_prompt`,
+`sequential`, `ask`, `steps`, `images` are documented in
+[djev-spark's README](https://github.com/geminixiang/djev-spark#extensions).
 
 ### Custom providers
 
