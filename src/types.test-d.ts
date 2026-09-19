@@ -1,41 +1,18 @@
-/**
- * Type-level tests. Compiled by `npm run typecheck`; never executed.
- */
-import { JevClient, choice, noul, score } from "./index.js";
+import { describe, expectTypeOf, it } from "vitest";
+import { choice, noul, score } from "./questions.js";
+import type { Answers, ChoiceAnswer, NoulAnswer, ScoreAnswer } from "./types.js";
 
-declare const client: JevClient;
-
-async function typed() {
-  const { answers } = await client.evaluate({
-    state: "s",
-    questions: {
-      ok: noul("?"),
-      team: choice("?", { billing: null, technical: "bugs", sales: null }),
-      mood: score("?", ["calm", "angry"]),
-    },
+describe("answer typing", () => {
+  it("infers answer shapes from question builders", () => {
+    const questions = {
+      a: noul("?"),
+      b: choice("?", { x: null, y: "why" }),
+      c: score("?", ["low", "high"]),
+    };
+    type A = Answers<typeof questions>;
+    expectTypeOf<A["a"]>().toEqualTypeOf<NoulAnswer>();
+    expectTypeOf<A["b"]["choice"]>().toEqualTypeOf<"x" | "y">();
+    expectTypeOf<A["b"]>().toMatchTypeOf<ChoiceAnswer>();
+    expectTypeOf<A["c"]>().toEqualTypeOf<ScoreAnswer>();
   });
-
-  const c: "billing" | "technical" | "sales" = answers.team.choice;
-  const p: number = answers.team.probabilities.billing;
-  const n: number = answers.ok.noul;
-  const s: number = answers.mood.score;
-
-  // @ts-expect-error unknown option
-  answers.team.probabilities.refunds;
-  // @ts-expect-error unknown question
-  answers.nothing;
-  // @ts-expect-error noul answers have no choice
-  answers.ok.choice;
-
-  return [c, p, n, s];
-}
-
-// @ts-expect-error provider is required
-new JevClient();
-// @ts-expect-error unknown provider name
-new JevClient("anthropic");
-
-// @ts-expect-error score needs at least two levels
-score("?", ["only"]);
-
-void typed;
+});

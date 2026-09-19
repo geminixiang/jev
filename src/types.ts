@@ -1,11 +1,14 @@
 /**
- * Core Jev types (provider-neutral).
- *
- * Jev answers typed questions about a "state". Three question types exist:
- *  - noul   : yes/no probability in [0, 1]
- *  - choice : pick one of caller-defined options, with full distribution
- *  - score  : position on an ordered rubric, with full distribution
+ * Core types. The shape mirrors pi-ai: a `JevModel` is a catalog entry, a
+ * `JevProvider` owns auth + a model list + an API implementation, and
+ * `JevModels` is the runtime collection that resolves auth and dispatches.
+ * The request/answer types follow TypeSafe's System One API.
  */
+import type { AuthResult, ProviderAuth, ProviderEnv, ProviderHeaders } from "@earendil-works/pi-ai";
+
+// ---------------------------------------------------------------------------
+// Entries (state, instructions, criteria descriptions)
+// ---------------------------------------------------------------------------
 
 export type JsonValue =
   | string
@@ -15,11 +18,8 @@ export type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
-/** Text, JSON object/array, or null. Used for state, instructions and criteria. */
+/** Text, a JSON object/array, or null. Jev reads structure. */
 export type Entry = string | { [key: string]: JsonValue } | JsonValue[] | null;
-
-/** The thing Jev evaluates. */
-export type JevState = Entry;
 
 // ---------------------------------------------------------------------------
 // Questions
@@ -28,11 +28,11 @@ export type JevState = Entry;
 export interface NoulQuestion {
   type: "noul";
   instructions?: Entry;
-  /** Optional descriptions of what counts as true / false. */
+  /** Optional descriptions of the yes / no outcomes. */
   criteria?: { true?: Entry; false?: Entry };
 }
 
-/** option id -> description (null = no description) */
+/** option id -> description (null leaves the id undescribed) */
 export type ChoiceCriteria = { readonly [option: string]: Entry };
 
 export interface ChoiceQuestion<T extends ChoiceCriteria = ChoiceCriteria> {
@@ -51,7 +51,6 @@ export interface ScoreQuestion<T extends ScoreCriteria = ScoreCriteria> {
 }
 
 export type Question = NoulQuestion | ChoiceQuestion | ScoreQuestion;
-
 export type Questions = { readonly [name: string]: Question };
 
 // ---------------------------------------------------------------------------
@@ -62,30 +61,29 @@ export interface NoulAnswer {
   type: "noul";
   /** Probability of "yes", 0..1 */
   noul: number;
-  confidence?: number;
 }
 
 export interface ChoiceAnswer<T extends ChoiceCriteria = ChoiceCriteria> {
   type: "choice";
   choice: keyof T & string;
-  confidence: number;
   probabilities: { [K in keyof T]: number };
+  /** 0..1 statistic over `probabilities`; low = no option clearly fits. */
+  confidence: number;
 }
 
 export interface ScoreAnswer {
   type: "score";
-  /** Expected value over the rubric index (e.g. 1.04); may be fractional. */
+  /** Expected level index; may be fractional. */
   score: number;
-  confidence: number;
-  /** index -> rubric label */
-  legend: Record<string, Entry>;
   /** index -> probability */
   probabilities: Record<string, number>;
+  /** index -> rubric text, as echoed by the API. */
+  legend?: Record<string, Entry>;
+  confidence: number;
 }
 
 export type Answer = NoulAnswer | ChoiceAnswer | ScoreAnswer;
 
-/** Map a question definition to its answer type, preserving choice keys. */
 export type AnswerFor<Q extends Question> = Q extends NoulQuestion
   ? NoulAnswer
   : Q extends ChoiceQuestion<infer T>
@@ -94,66 +92,137 @@ export type AnswerFor<Q extends Question> = Q extends NoulQuestion
       ? ScoreAnswer
       : never;
 
-export type Answers<Qs extends Questions> = {
-  readonly [K in keyof Qs]: AnswerFor<Qs[K]>;
-};
+export type Answers<Qs extends Questions> = { readonly [K in keyof Qs]: AnswerFor<Qs[K]> };
 
 // ---------------------------------------------------------------------------
-// Request / response (provider-neutral)
+// Models and providers (pi-ai shaped)
 // ---------------------------------------------------------------------------
 
-export interface JevUsage {
-  input_tokens: number;
-  output_tokens: number;
+export type KnownJevApi = "typesafe-systemone" | "openrouter-decisions" | "cloudflare-workers-ai";
+/** Wire protocol id. Open so custom providers can register their own. */
+export type JevApi = KnownJevApi | (string & {});
+
+export type KnownJevProvider = "typesafe" | "openrouter" | "cloudflare";
+export type JevProviderId = KnownJevProvider | (string & {});
+
+export interface JevModelCost {
+  /** USD per million input tokens */
+  input: number;
+  /** USD per million output tokens */
+  output: number;
 }
 
-export interface JevRequest<Qs extends Questions = Questions> {
-  state: JevState;
-  questions: Qs;
-  /**
-   * Model override. Provider-neutral names are accepted ("jev-latest",
-   * "jev-1.13") and mapped to each provider's slug automatically.
-   */
-  model?: string;
-}
-
-export interface JevResponse<Qs extends Questions = Questions> {
-  /** Resolved model id as reported by the provider, e.g. "jev-1.13.0" */
-  model?: string | undefined;
-  answers: Answers<Qs>;
-  usage?: JevUsage | undefined;
-  /** Which provider served the request. */
-  provider: string;
-  /** Raw provider payload, for debugging. */
-  raw?: unknown;
-}
-
-// ---------------------------------------------------------------------------
-// Transport
-// ---------------------------------------------------------------------------
-
-export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
-
-export interface EvaluateOptions {
-  /** Abort the underlying request. */
-  signal?: AbortSignal;
-  /** Per-request timeout in ms. Default: client-level timeout. */
-  timeoutMs?: number;
-  /** Extra headers merged into the request. */
+/** A catalog entry: which provider serves it, over which API, at which endpoint. */
+export interface JevModel<TApi extends JevApi = JevApi> {
+  /** Provider-neutral id, e.g. "jev-latest", "jev-1.13". */
+  id: string;
+  name: string;
+  api: TApi;
+  provider: JevProviderId;
+  baseUrl: string;
+  /** Provider-specific model slug sent on the wire, e.g. "~typesafe/jev-1.13". */
+  slug: string;
+  cost: JevModelCost;
   headers?: Record<string, string>;
 }
 
-/**
- * A provider knows how to deliver a JevRequest to one backend and
- * normalise the result into a JevResponse. Implement this to add a backend.
- */
-export interface JevProvider {
-  readonly name: string;
-  evaluate(request: JevRequest, options: ResolvedEvaluateOptions): Promise<JevResponse>;
+export interface JevRequest<Qs extends Questions = Questions> {
+  state: Entry;
+  questions: Qs;
 }
 
+export interface JevUsage {
+  input: number;
+  output: number;
+  totalTokens: number;
+  cost: { input: number; output: number; total: number };
+}
+
+export interface JevResult<Qs extends Questions = Questions> {
+  provider: JevProviderId;
+  /** Model id as reported by the backend, when it reports one. */
+  model: string;
+  answers: Answers<Qs>;
+  usage: JevUsage;
+  /** Untouched backend payload for debugging. */
+  raw: unknown;
+}
+
+export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
+
+/** Per-request options accepted by `JevModels.evaluate()`. */
+export interface EvaluateOptions {
+  /** Explicit key wins over resolved auth. */
+  apiKey?: string;
+  /** Provider-scoped env overrides (e.g. Cloudflare account id). */
+  env?: ProviderEnv;
+  headers?: ProviderHeaders;
+  signal?: AbortSignal;
+  /** Default 30_000. */
+  timeoutMs?: number;
+  /** Default 2. Only 408 / 429 / 5xx / connection / timeout are retried. */
+  maxRetries?: number;
+  fetch?: Fetch;
+}
+
+/** What an API implementation receives after auth and options are merged. */
 export interface ResolvedEvaluateOptions {
-  signal: AbortSignal;
+  apiKey?: string;
+  env: ProviderEnv;
   headers: Record<string, string>;
+  signal: AbortSignal;
   fetch: Fetch;
+}
+
+/**
+ * A wire-protocol implementation: the Jev counterpart of pi-ai's
+ * `ProviderStreams`. Knows nothing about auth resolution.
+ */
+export interface JevApiImpl<TApi extends JevApi = JevApi> {
+  readonly api: TApi;
+  evaluate(
+    model: JevModel<TApi>,
+    request: JevRequest,
+    options: ResolvedEvaluateOptions,
+  ): Promise<JevResult>;
+}
+
+/**
+ * A provider: identity, auth, model catalog, and evaluation. The Jev
+ * counterpart of pi-ai's `Provider`.
+ */
+export interface JevProvider<TApi extends JevApi = JevApi> {
+  readonly id: JevProviderId;
+  readonly name: string;
+  readonly auth: ProviderAuth;
+  getModels(): readonly JevModel<TApi>[];
+  evaluate(
+    model: JevModel<TApi>,
+    request: JevRequest,
+    options: ResolvedEvaluateOptions,
+  ): Promise<JevResult>;
+}
+
+/** Runtime collection of providers: the Jev counterpart of pi-ai's `Models`. */
+export interface JevModels {
+  getProviders(): readonly JevProvider[];
+  getProvider(id: string): JevProvider | undefined;
+  getModels(provider?: string): readonly JevModel[];
+  getModel(provider: string, id: string): JevModel | undefined;
+  /** Resolve provider auth; undefined when unknown or unconfigured. */
+  getAuth(providerId: string): Promise<AuthResult | undefined>;
+  getAuth(model: JevModel): Promise<AuthResult | undefined>;
+  /** Models whose provider has complete auth configuration. */
+  getAvailable(providerId?: string): Promise<readonly JevModel[]>;
+  evaluate<Qs extends Questions>(
+    model: JevModel,
+    request: JevRequest<Qs>,
+    options?: EvaluateOptions,
+  ): Promise<JevResult<Qs>>;
+}
+
+export interface MutableJevModels extends JevModels {
+  setProvider(provider: JevProvider): void;
+  deleteProvider(id: string): void;
+  clearProviders(): void;
 }

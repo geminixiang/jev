@@ -10,11 +10,7 @@ import type {
   ScoreQuestion,
 } from "./types.js";
 
-/**
- * Yes/no question. Returns probability of "yes".
- *
- * @example noul("Does this message convey urgency?", { true: "Explicitly time-sensitive", false: "No urgency" })
- */
+/** Yes/no question; answered as the probability of "yes". */
 export function noul(
   instructions: Entry,
   criteria?: { true?: Entry; false?: Entry },
@@ -22,11 +18,7 @@ export function noul(
   return criteria ? { type: "noul", instructions, criteria } : { type: "noul", instructions };
 }
 
-/**
- * Pick one option. Keys of `criteria` become the typed `choice` answer.
- *
- * @example choice("Which team?", { billing: "Payments", technical: "Bugs", sales: null })
- */
+/** Pick one option. The keys of `criteria` type the `choice` answer. */
 export function choice<const T extends ChoiceCriteria>(
   instructions: Entry,
   criteria: T,
@@ -34,11 +26,7 @@ export function choice<const T extends ChoiceCriteria>(
   return { type: "choice", instructions, criteria };
 }
 
-/**
- * Ordered rubric; index 0 is the lowest level.
- *
- * @example score("How frustrated is the customer?", ["Calm", "Frustrated", "Very angry"])
- */
+/** Ordered rubric; index 0 is the lowest level. */
 export function score<const T extends ScoreCriteria>(
   instructions: Entry,
   criteria: T,
@@ -51,12 +39,10 @@ export function validateQuestions(questions: Questions): void {
   const names = Object.keys(questions);
   if (names.length === 0)
     throw new JevConfigError("`questions` must contain at least one question.");
-
   for (const name of names) {
     const q = questions[name] as Question | undefined;
     if (!q || typeof q !== "object")
       throw new JevConfigError(`question "${name}" must be an object.`);
-
     switch (q.type) {
       case "noul":
         break;
@@ -68,14 +54,14 @@ export function validateQuestions(questions: Questions): void {
           );
         break;
       }
-      case "score": {
-        if (!Array.isArray(q.criteria) || q.criteria.length < 2)
+      case "score":
+        if (!Array.isArray(q.criteria) || q.criteria.length < 2) {
           throw new JevConfigError(`score question "${name}" needs an array of at least 2 levels.`);
+        }
         break;
-      }
       default:
         throw new JevConfigError(
-          `question "${name}" has unknown type "${(q as { type?: unknown }).type}". Expected noul | choice | score.`,
+          `question "${name}" has unknown type "${String((q as { type?: unknown }).type)}". Expected noul | choice | score.`,
         );
     }
   }

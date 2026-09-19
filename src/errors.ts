@@ -5,7 +5,7 @@ export class JevError extends Error {
   }
 }
 
-/** Configuration problems (missing key, unknown provider, bad question). */
+/** Malformed request, unknown provider/model, missing implementation. */
 export class JevConfigError extends JevError {
   constructor(message: string) {
     super(message);
@@ -13,10 +13,20 @@ export class JevConfigError extends JevError {
   }
 }
 
-/** Non-2xx HTTP response from a provider. */
-export class JevAPIError extends JevError {
-  readonly status: number;
+/** The provider has no usable credential. */
+export class JevAuthError extends JevError {
   readonly provider: string;
+  constructor(provider: string, message: string) {
+    super(message);
+    this.name = "JevAuthError";
+    this.provider = provider;
+  }
+}
+
+/** Non-2xx HTTP response, or a 2xx envelope that reports failure. */
+export class JevAPIError extends JevError {
+  readonly provider: string;
+  readonly status: number;
   readonly body: unknown;
   readonly headers: Headers;
 
@@ -40,8 +50,20 @@ export class JevAPIError extends JevError {
   }
 }
 
-/** Network failure (DNS, connection reset, etc). */
+/** A 2xx body that does not match the expected answer shape. Not retried. */
+export class JevResponseError extends JevError {
+  readonly provider: string;
+  readonly body: unknown;
+  constructor(provider: string, message: string, body: unknown) {
+    super(`[${provider}] ${message}`);
+    this.name = "JevResponseError";
+    this.provider = provider;
+    this.body = body;
+  }
+}
+
 export class JevConnectionError extends JevError {
+  readonly provider: string;
   constructor(provider: string, cause: unknown) {
     super(
       `[${provider}] connection error: ${cause instanceof Error ? cause.message : String(cause)}`,
@@ -50,13 +72,16 @@ export class JevConnectionError extends JevError {
       },
     );
     this.name = "JevConnectionError";
+    this.provider = provider;
   }
 }
 
 export class JevTimeoutError extends JevError {
+  readonly provider: string;
   constructor(provider: string, timeoutMs: number) {
     super(`[${provider}] request timed out after ${timeoutMs}ms`);
     this.name = "JevTimeoutError";
+    this.provider = provider;
   }
 }
 

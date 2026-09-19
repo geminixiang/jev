@@ -1,41 +1,30 @@
-import { postJson } from "../http.js";
-import type { JevProvider, JevRequest, JevResponse, ResolvedEvaluateOptions } from "../types.js";
-import { canonicalJevVersion } from "./model.js";
+import { envApiKeyAuth } from "@earendil-works/pi-ai";
+import { openrouterDecisionsApi } from "../api/openrouter-decisions.js";
+import { createJevProvider } from "../provider.js";
+import type { JevModel, JevProvider } from "../types.js";
+import { JEV_LIST_COST, JEV_VERSIONS, jevModelId } from "./catalog.js";
 
-export interface OpenRouterProviderOptions {
-  apiKey: string;
-  /** Default: https://openrouter.ai/api */
-  baseUrl?: string;
-  /** Sets HTTP-Referer for OpenRouter rankings. */
-  siteUrl?: string;
-  /** Sets X-OpenRouter-Title for OpenRouter rankings. */
-  siteName?: string;
-}
+export const OPENROUTER_BASE_URL = "https://openrouter.ai/api";
 
-/** OpenRouter Decisions API: POST {baseUrl}/alpha/decisions, model "~typesafe/jev-<ver>" */
-export function openrouterProvider(opts: OpenRouterProviderOptions): JevProvider {
-  const baseUrl = (opts.baseUrl ?? "https://openrouter.ai/api").replace(/\/+$/, "");
-  const name = "openrouter";
+export const OPENROUTER_MODELS: readonly JevModel<"openrouter-decisions">[] = JEV_VERSIONS.map(
+  (version) => ({
+    id: jevModelId(version),
+    name: `Jev ${version} (OpenRouter)`,
+    api: "openrouter-decisions",
+    provider: "openrouter",
+    baseUrl: OPENROUTER_BASE_URL,
+    slug: `~typesafe/jev-${version}`,
+    cost: JEV_LIST_COST,
+  }),
+);
 
-  return {
-    name,
-    async evaluate(request: JevRequest, options: ResolvedEvaluateOptions): Promise<JevResponse> {
-      const version = canonicalJevVersion(request.model);
-      const headers: Record<string, string> = { Authorization: `Bearer ${opts.apiKey}` };
-      if (opts.siteUrl) headers["HTTP-Referer"] = opts.siteUrl;
-      if (opts.siteName) headers["X-OpenRouter-Title"] = opts.siteName;
-
-      const raw = await postJson<{
-        model?: string;
-        answers: JevResponse["answers"];
-        usage?: JevResponse["usage"];
-      }>(
-        name,
-        `${baseUrl}/alpha/decisions`,
-        { model: `~typesafe/jev-${version}`, state: request.state, questions: request.questions },
-        { ...options, headers: { ...headers, ...options.headers } },
-      );
-      return { provider: name, model: raw.model, answers: raw.answers, usage: raw.usage, raw };
-    },
-  };
+/** OpenRouter Decisions API. Key: `OPENROUTER_API_KEY` (shared with pi-ai's chat provider). */
+export function openrouterProvider(): JevProvider<"openrouter-decisions"> {
+  return createJevProvider({
+    id: "openrouter",
+    name: "OpenRouter",
+    auth: { apiKey: envApiKeyAuth("OpenRouter API key", ["OPENROUTER_API_KEY"]) },
+    models: OPENROUTER_MODELS,
+    api: openrouterDecisionsApi(),
+  });
 }

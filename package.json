@@ -1,7 +1,7 @@
 {
   "name": "jev-sdk",
-  "version": "0.1.0",
-  "description": "Provider-agnostic TypeScript SDK for TypeSafe's Jev structured-decision model. One API for TypeSafe, OpenRouter and Cloudflare Workers AI.",
+  "version": "0.2.0",
+  "description": "pi-ai-shaped SDK for TypeSafe's Jev decision model: providers with auth and catalogs, a Models collection, and typed questions/answers. Backends: TypeSafe, OpenRouter, Cloudflare Workers AI.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -64,7 +64,7 @@
   "bugs": "https://github.com/geminixiang/jev-sdk/issues",
   "homepage": "https://github.com/geminixiang/jev-sdk#readme",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "publishConfig": {
     "access": "public",
@@ -79,6 +79,10 @@
     "publint": "^0.2.0",
     "tsup": "^8.3.0",
     "typescript": "^5.9.3",
-    "vitest": "^2.1.0"
+    "vitest": "^2.1.0",
+    "@earendil-works/pi-ai": "^0.85.1"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": ">=0.85.0"
   }
 }

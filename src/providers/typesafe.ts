@@ -1,36 +1,30 @@
-import { postJson } from "../http.js";
-import type { JevProvider, JevRequest, JevResponse, ResolvedEvaluateOptions } from "../types.js";
-import { canonicalJevVersion } from "./model.js";
+import { envApiKeyAuth } from "@earendil-works/pi-ai";
+import { typesafeSystemOneApi } from "../api/typesafe-systemone.js";
+import { createJevProvider } from "../provider.js";
+import type { JevModel, JevProvider } from "../types.js";
+import { JEV_LIST_COST, JEV_VERSIONS, jevModelId } from "./catalog.js";
 
-export interface TypeSafeProviderOptions {
-  apiKey: string;
-  /** Default: https://api.typesafe.ai */
-  baseUrl?: string;
-}
+export const TYPESAFE_BASE_URL = "https://api.typesafe.ai";
 
-/** Direct TypeSafe AI API: POST {baseUrl}/v1/systemone */
-export function typesafeProvider(opts: TypeSafeProviderOptions): JevProvider {
-  const baseUrl = (opts.baseUrl ?? "https://api.typesafe.ai").replace(/\/+$/, "");
-  const name = "typesafe";
+export const TYPESAFE_MODELS: readonly JevModel<"typesafe-systemone">[] = JEV_VERSIONS.map(
+  (version) => ({
+    id: jevModelId(version),
+    name: `Jev ${version} (TypeSafe)`,
+    api: "typesafe-systemone",
+    provider: "typesafe",
+    baseUrl: TYPESAFE_BASE_URL,
+    slug: `jev-${version}`,
+    cost: JEV_LIST_COST,
+  }),
+);
 
-  return {
-    name,
-    async evaluate(request: JevRequest, options: ResolvedEvaluateOptions): Promise<JevResponse> {
-      const version = canonicalJevVersion(request.model);
-      const raw = await postJson<{
-        model: string;
-        answers: JevResponse["answers"];
-        usage?: JevResponse["usage"];
-      }>(
-        name,
-        `${baseUrl}/v1/systemone`,
-        { model: `jev-${version}`, state: request.state, questions: request.questions },
-        {
-          ...options,
-          headers: { Authorization: `Bearer ${opts.apiKey}`, ...options.headers },
-        },
-      );
-      return { provider: name, model: raw.model, answers: raw.answers, usage: raw.usage, raw };
-    },
-  };
+/** TypeSafe AI direct. Key: `TYPESAFE_API_KEY`. */
+export function typesafeProvider(): JevProvider<"typesafe-systemone"> {
+  return createJevProvider({
+    id: "typesafe",
+    name: "TypeSafe AI",
+    auth: { apiKey: envApiKeyAuth("TypeSafe API key", ["TYPESAFE_API_KEY"]) },
+    models: TYPESAFE_MODELS,
+    api: typesafeSystemOneApi(),
+  });
 }

@@ -1,23 +1,34 @@
-export { JevClient, type JevClientOptions, type RetryOptions } from "./client.js";
+export { createBuiltinJevModels, createJevModels, type CreateJevModelsOptions } from "./models.js";
+export { createJevProvider, type CreateJevProviderOptions } from "./provider.js";
 export { choice, noul, score, validateQuestions } from "./questions.js";
 export {
   JevAbortError,
   JevAPIError,
+  JevAuthError,
   JevConfigError,
   JevConnectionError,
   JevError,
+  JevResponseError,
   JevTimeoutError,
 } from "./errors.js";
-export { JEV_API_KEY_ENV, type ProviderName } from "./env.js";
-export { typesafeProvider, type TypeSafeProviderOptions } from "./providers/typesafe.js";
-export { openrouterProvider, type OpenRouterProviderOptions } from "./providers/openrouter.js";
+
+export { builtinJevProviders } from "./providers/all.js";
+export { typesafeProvider, TYPESAFE_MODELS, TYPESAFE_BASE_URL } from "./providers/typesafe.js";
+export {
+  openrouterProvider,
+  OPENROUTER_MODELS,
+  OPENROUTER_BASE_URL,
+} from "./providers/openrouter.js";
 export {
   cloudflareProvider,
-  cloudflareBindingProvider,
-  type CloudflareRestProviderOptions,
-  type CloudflareBindingProviderOptions,
-  type WorkersAiBinding,
+  CLOUDFLARE_MODELS,
+  CLOUDFLARE_BASE_URL,
 } from "./providers/cloudflare.js";
-export { canonicalJevVersion } from "./providers/model.js";
+export { JEV_VERSIONS, JEV_LIST_COST, jevModelId, type JevVersion } from "./providers/catalog.js";
+
+export { typesafeSystemOneApi } from "./api/typesafe-systemone.js";
+export { openrouterDecisionsApi } from "./api/openrouter-decisions.js";
+export { cloudflareWorkersAiApi, CLOUDFLARE_ACCOUNT_ID_ENV } from "./api/cloudflare-workers-ai.js";
+
 export { VERSION } from "./version.js";
 export type * from "./types.js";

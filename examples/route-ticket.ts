@@ -1,12 +1,12 @@
-// npx tsx examples/route-ticket.ts
-import { JevClient, choice, noul, score } from "jev-sdk";
+// OPENROUTER_API_KEY=... npx tsx examples/route-ticket.ts
+import { choice, createBuiltinJevModels, noul, score } from "jev-sdk";
 
-const jev = new JevClient("openrouter"); // JEV_API_KEY from env
+const models = createBuiltinJevModels();
+const model = models.getModel("openrouter", "jev-latest");
+if (!model) throw new Error("no model");
 
-const ticket = "Help! My payouts have been failing for 3 days.";
-
-const { answers } = await jev.evaluate({
-  state: ticket,
+const { answers } = await models.evaluate(model, {
+  state: "Help! My payouts have been failing for 3 days.",
   questions: {
     is_urgent: noul("Does this message convey urgency?"),
     department: choice("Which team should handle this?", {
@@ -18,8 +18,11 @@ const { answers } = await jev.evaluate({
   },
 });
 
-if (answers.is_urgent.noul > 0.8 && answers.department.confidence > 0.7) {
+// Code owns the decision; Jev supplies calibrated signals.
+if (answers.department.confidence < 0.5) {
+  console.log("unsure which team; route to human", answers.department.probabilities);
+} else if (answers.is_urgent.noul > 0.8) {
   console.log(`escalate to ${answers.department.choice}`);
 } else {
-  console.log("queue for human triage", answers);
+  console.log(`queue for ${answers.department.choice}`);
 }

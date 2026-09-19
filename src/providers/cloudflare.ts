@@ -1,75 +1,59 @@
-import { JevAPIError } from "../errors.js";
-import { postJson } from "../http.js";
-import type { JevProvider, JevRequest, JevResponse, ResolvedEvaluateOptions } from "../types.js";
+import type { ApiKeyAuth, AuthResult } from "@earendil-works/pi-ai";
+import { CLOUDFLARE_ACCOUNT_ID_ENV, cloudflareWorkersAiApi } from "../api/cloudflare-workers-ai.js";
+import { createJevProvider } from "../provider.js";
+import type { JevModel, JevProvider } from "../types.js";
+import { JEV_LIST_COST } from "./catalog.js";
 
-type CfRaw = { model?: string; answers: JevResponse["answers"]; usage?: JevResponse["usage"] };
+export const CLOUDFLARE_BASE_URL = "https://api.cloudflare.com/client/v4/accounts/{account}";
+const CLOUDFLARE_API_TOKEN_ENV = "CLOUDFLARE_API_TOKEN";
 
-/** Minimal shape of a Workers AI binding (`env.AI`). */
-export interface WorkersAiBinding {
-  run(model: string, input: unknown, options?: unknown): Promise<unknown>;
-}
+/** Cloudflare exposes one slug and does not version it. */
+export const CLOUDFLARE_MODELS: readonly JevModel<"cloudflare-workers-ai">[] = [
+  {
+    id: "jev-latest",
+    name: "Jev (Cloudflare Workers AI)",
+    api: "cloudflare-workers-ai",
+    provider: "cloudflare",
+    baseUrl: CLOUDFLARE_BASE_URL,
+    slug: "typesafe/jev",
+    cost: JEV_LIST_COST,
+  },
+];
 
-export interface CloudflareRestProviderOptions {
-  /** Cloudflare API token with Workers AI permission (JEV_API_KEY). */
-  apiKey: string;
-  /** Cloudflare account id. Required for REST mode. */
-  accountId: string;
-  /** Default: https://api.cloudflare.com/client/v4 */
-  baseUrl?: string;
-  /** Default: "typesafe/jev" — Cloudflare only exposes one slug today. */
-  model?: string;
-}
+/**
+ * Key plus provider env: the account id rides in `credential.env` /
+ * `CLOUDFLARE_ACCOUNT_ID`, the same pattern pi-ai's Cloudflare providers use.
+ */
+const cloudflareAuth: ApiKeyAuth = {
+  name: "Cloudflare API token",
+  async login(interaction) {
+    const key = await interaction.prompt({
+      type: "secret",
+      message: "Cloudflare API token (Workers AI)",
+    });
+    const account = await interaction.prompt({ type: "text", message: "Cloudflare account id" });
+    return { type: "api_key", key, env: { [CLOUDFLARE_ACCOUNT_ID_ENV]: account } };
+  },
+  async resolve({ ctx, credential }): Promise<AuthResult | undefined> {
+    const apiKey = credential?.key ?? (await ctx.env(CLOUDFLARE_API_TOKEN_ENV));
+    const account =
+      credential?.env?.[CLOUDFLARE_ACCOUNT_ID_ENV] ?? (await ctx.env(CLOUDFLARE_ACCOUNT_ID_ENV));
+    if (!apiKey || !account) return undefined;
+    return {
+      auth: { apiKey },
+      env: { [CLOUDFLARE_ACCOUNT_ID_ENV]: account },
+      source: credential?.key ? "stored credential" : CLOUDFLARE_API_TOKEN_ENV,
+    };
+  },
+};
 
-/** Cloudflare Workers AI via REST: POST /accounts/{id}/ai/run/typesafe/jev */
-export function cloudflareProvider(opts: CloudflareRestProviderOptions): JevProvider {
-  const baseUrl = (opts.baseUrl ?? "https://api.cloudflare.com/client/v4").replace(/\/+$/, "");
-  const slug = opts.model ?? "typesafe/jev";
-  const name = "cloudflare";
-
-  return {
-    name,
-    async evaluate(request: JevRequest, options: ResolvedEvaluateOptions): Promise<JevResponse> {
-      const envelope = await postJson<{ success: boolean; result?: CfRaw; errors?: unknown[] }>(
-        name,
-        `${baseUrl}/accounts/${opts.accountId}/ai/run/${slug}`,
-        { state: request.state, questions: request.questions },
-        { ...options, headers: { Authorization: `Bearer ${opts.apiKey}`, ...options.headers } },
-      );
-      if (!envelope.success || !envelope.result) {
-        throw new JevAPIError(name, 200, envelope.errors ?? envelope, new Headers());
-      }
-      const raw = envelope.result;
-      return {
-        provider: name,
-        model: raw.model,
-        answers: raw.answers,
-        usage: raw.usage,
-        raw: envelope,
-      };
-    },
-  };
-}
-
-export interface CloudflareBindingProviderOptions {
-  /** `env.AI` inside a Worker. */
-  binding: WorkersAiBinding;
-  model?: string;
-}
-
-/** Cloudflare Workers AI via the in-Worker `env.AI` binding. No API key needed. */
-export function cloudflareBindingProvider(opts: CloudflareBindingProviderOptions): JevProvider {
-  const slug = opts.model ?? "typesafe/jev";
-  const name = "cloudflare-binding";
-
-  return {
-    name,
-    async evaluate(request: JevRequest, options: ResolvedEvaluateOptions): Promise<JevResponse> {
-      options.signal.throwIfAborted();
-      const raw = (await opts.binding.run(slug, {
-        state: request.state,
-        questions: request.questions,
-      })) as CfRaw;
-      return { provider: name, model: raw.model, answers: raw.answers, usage: raw.usage, raw };
-    },
-  };
+/** Cloudflare Workers AI REST. Key: `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`. */
+export function cloudflareProvider(): JevProvider<"cloudflare-workers-ai"> {
+  return createJevProvider({
+    id: "cloudflare",
+    name: "Cloudflare Workers AI",
+    auth: { apiKey: cloudflareAuth },
+    models: CLOUDFLARE_MODELS,
+    api: cloudflareWorkersAiApi(),
+  });
 }
