@@ -18,10 +18,9 @@ Jev answers typed questions about a *state* with calibrated probabilities:
 | `choice` | one option from a set you define, with a probability per option and (where the backend reports it) a `confidence` |
 | `score` | a position on an ordered rubric, with a probability per level and (where the backend reports it) a `confidence` |
 
-`confidence` is optional: Vercel AI Gateway's evaluation modality does not put it on the
-answer (it rides in `providerMetadata.typesafe.confidence` on the wire; the Vercel
-provider reads it and fills the same field), so treat it as possibly absent when writing
-backend-agnostic code.
+`confidence` is optional — Vercel's evaluation modality omits it from the answer (it's
+nested in `providerMetadata.typesafe.confidence`; the provider normalizes it), so treat
+it as possibly absent.
 
 ## Using it from Pi
 
@@ -123,16 +122,10 @@ The server is keyless unless started with `API_KEY`; then set `DJEV_API_KEY` (or
 `apiKey`). `DJEV_BASE_URL` in the env overrides `baseUrl`, and a custom `id` lets several
 boxes coexist: `djevProvider({ id: "spark-b", baseUrl: "http://b:8011" })`.
 
-> **Why images only work here:** TypeSafe's docs are explicit —
-> ["Jev accepts text only. State must be a string, JSON object, or array of
-> text values. Images, audio, and video are not supported (yet)."](https://docs.typesafe.ai/concepts/state)
-> That is a limit of the hosted Jev backends themselves (`typesafe`,
-> `openrouter`, `vercel`, `cloudflare`), not of this SDK. `images` is a
-> djev-spark-only extension: DiffusionGemma is multimodal, and djev-spark's
-> `/v1/systemone` server accepts image input ahead of the built-in cloud
-> APIs supporting it. Sending `images` to a cloud provider is simply
-> dropped, never an error, since the field does not exist on their wire
-> format.
+> **Images work only here.** Hosted Jev [doesn't accept images yet](https://docs.typesafe.ai/concepts/state) —
+> a backend limit on all four cloud providers, not a gap in this SDK. DiffusionGemma is
+> multimodal, so djev-spark takes `images` ahead of the cloud APIs catching up; sending
+> it to a cloud provider is silently dropped, not an error.
 
 The `djev` wire also carries the server's extensions, all optional and ignored-by-design
 on cloud providers (the built-in cloud APIs never send them):
@@ -180,12 +173,10 @@ models.setProvider(proxy);
 
 Implement `JevApiImpl` for a new wire protocol; the three built-in ones live under `api/`.
 
-> **Cloudflare note:** `typesafe/jev` is a third-party model reached through
-> Cloudflare's unified `POST /accounts/{id}/ai/run` endpoint
-> (`{ model, input: { state, questions } }`), not the classic
-> `/ai/run/{model_name}` path form native `@cf/...` models use. It is listed
-> under [developers.cloudflare.com/ai/models/typesafe/jev/](https://developers.cloudflare.com/ai/models/typesafe/jev/),
-> a separate, newer catalog from the classic Workers AI models page.
+> **Cloudflare note:** `typesafe/jev` is a third-party model reached through Cloudflare's
+> unified `POST /accounts/{id}/ai/run` endpoint (`{ model, input: { state, questions } }`),
+> not the classic `/ai/run/{model_name}` path native `@cf/...` models use — see
+> [developers.cloudflare.com/ai/models/typesafe/jev/](https://developers.cloudflare.com/ai/models/typesafe/jev/).
 
 ## Errors
 
