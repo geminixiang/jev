@@ -7,6 +7,15 @@ import { JEV_LIST_COST } from "./catalog.js";
 export const CLOUDFLARE_BASE_URL = "https://api.cloudflare.com/client/v4/accounts/{account}";
 const CLOUDFLARE_API_TOKEN_ENV = "CLOUDFLARE_API_TOKEN";
 
+/**
+ * UNVERIFIED as of 2026-09: `typesafe/jev` is not present in this account's
+ * Workers AI model catalog (`GET /accounts/{id}/ai/models/search`, 308
+ * models, no match) and its per-model doc page 404s, despite an indexed page
+ * appearing to describe it. `POST /ai/run/typesafe/jev` returns
+ * `7000 No route for that URI`. Kept for when/if Cloudflare lists it; do not
+ * rely on this provider until it is confirmed live.
+ */
+
 /** Cloudflare exposes one slug and does not version it. */
 export const CLOUDFLARE_MODELS: readonly JevModel<"cloudflare-workers-ai">[] = [
   {
