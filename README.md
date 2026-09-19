@@ -123,6 +123,17 @@ The server is keyless unless started with `API_KEY`; then set `DJEV_API_KEY` (or
 `apiKey`). `DJEV_BASE_URL` in the env overrides `baseUrl`, and a custom `id` lets several
 boxes coexist: `djevProvider({ id: "spark-b", baseUrl: "http://b:8011" })`.
 
+> **Why images only work here:** TypeSafe's docs are explicit —
+> ["Jev accepts text only. State must be a string, JSON object, or array of
+> text values. Images, audio, and video are not supported (yet)."](https://docs.typesafe.ai/concepts/state)
+> That is a limit of the hosted Jev backends themselves (`typesafe`,
+> `openrouter`, `vercel`, `cloudflare`), not of this SDK. `images` is a
+> djev-spark-only extension: DiffusionGemma is multimodal, and djev-spark's
+> `/v1/systemone` server accepts image input ahead of the built-in cloud
+> APIs supporting it. Sending `images` to a cloud provider is simply
+> dropped, never an error, since the field does not exist on their wire
+> format.
+
 The `djev` wire also carries the server's extensions, all optional and ignored-by-design
 on cloud providers (the built-in cloud APIs never send them):
 
