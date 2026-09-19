@@ -5,10 +5,9 @@
 
 TypeScript SDK for TypeSafe's **Jev** decision model, shaped like
 [`@earendil-works/pi-ai`](https://github.com/earendil-works/pi-ai): providers own auth,
-a model catalog, and a wire implementation; a `JevModels` collection resolves credentials
-and dispatches. Jev is not a chat model, so it does not fit pi-ai's `Provider`/`stream()`
-contract — this package is the decisions-side counterpart, the way pi-ai's `ImagesModels`
-is the image-side one.
+a model catalog, and a wire implementation; `JevModels` resolves credentials and dispatches.
+Jev isn't a chat model, so it skips pi-ai's `Provider`/`stream()` contract — this is the
+decisions-side counterpart to pi-ai's `ImagesModels`.
 
 Jev answers typed questions about a *state* with calibrated probabilities:
 
@@ -107,8 +106,8 @@ await models.evaluate(model, request, {
 ### Self-hosted: djev-spark
 
 [djev-spark](https://github.com/geminixiang/djev-spark) serves TypeSafe's `/v1/systemone`
-protocol from your own box (DiffusionGemma on a DGX Spark). Since a self-hosted endpoint
-has no fixed address, the provider is created explicitly rather than shipped as a builtin:
+protocol from your own box (DiffusionGemma on a DGX Spark). No fixed address, so it's
+created explicitly rather than shipped as a builtin:
 
 ```ts
 import { choice, createJevModels, djevProvider } from "@geminixiang/jev";
@@ -148,10 +147,7 @@ const { answers } = await models.evaluate(model, {
 answers.side;   // ChoiceAnswer | null — null when the gate skipped it
 ```
 
-Per-question `depends_on` / `ask_if` / `alone` and request-level `seed`, `samples`,
-`auto_max`, `auto_threshold`, `think`, `instructions`, `chunk_rows`, `chunk_prompt`,
-`sequential`, `ask`, `steps`, `images` are documented in
-[djev-spark's README](https://github.com/geminixiang/djev-spark#extensions).
+Full extension list in [djev-spark's README](https://github.com/geminixiang/djev-spark#extensions).
 
 ### Custom providers
 
