@@ -1,4 +1,4 @@
-# jev-sdk
+# @geminixiang/jev
 
 ## 0.1.0
 

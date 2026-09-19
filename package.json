@@ -1,5 +1,5 @@
 {
-  "name": "jev-sdk",
+  "name": "@geminixiang/jev",
   "version": "0.2.0",
   "description": "pi-ai-shaped SDK for TypeSafe's Jev decision model: providers with auth and catalogs, a Models collection, and typed questions/answers. Backends: TypeSafe, OpenRouter, Cloudflare Workers AI.",
   "type": "module",
@@ -59,10 +59,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/geminixiang/jev-sdk.git"
+    "url": "git+https://github.com/geminixiang/jev.git"
   },
-  "bugs": "https://github.com/geminixiang/jev-sdk/issues",
-  "homepage": "https://github.com/geminixiang/jev-sdk#readme",
+  "bugs": "https://github.com/geminixiang/jev/issues",
+  "homepage": "https://github.com/geminixiang/jev#readme",
   "engines": {
     "node": ">=20"
   },

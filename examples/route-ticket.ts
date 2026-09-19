@@ -1,5 +1,5 @@
 // OPENROUTER_API_KEY=... npx tsx examples/route-ticket.ts
-import { choice, createBuiltinJevModels, noul, score } from "jev-sdk";
+import { choice, createBuiltinJevModels, noul, score } from "@geminixiang/jev";
 
 const models = createBuiltinJevModels();
 const model = models.getModel("openrouter", "jev-latest");

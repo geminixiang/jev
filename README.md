@@ -1,7 +1,7 @@
-# jev-sdk
+# @geminixiang/jev
 
-[![CI](https://github.com/geminixiang/jev-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/geminixiang/jev-sdk/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/jev-sdk)](https://www.npmjs.com/package/jev-sdk)
+[![CI](https://github.com/geminixiang/jev/actions/workflows/ci.yml/badge.svg)](https://github.com/geminixiang/jev/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@geminixiang/jev)](https://www.npmjs.com/package/@geminixiang/jev)
 
 TypeScript SDK for TypeSafe's **Jev** decision model, shaped like
 [`@earendil-works/pi-ai`](https://github.com/earendil-works/pi-ai): providers own auth,
@@ -21,7 +21,7 @@ Jev answers typed questions about a *state* with calibrated probabilities:
 ## Install
 
 ```sh
-npm install jev-sdk @earendil-works/pi-ai
+npm install @geminixiang/jev @earendil-works/pi-ai
 ```
 
 `@earendil-works/pi-ai` is a peer dependency; only its auth layer (`envApiKeyAuth`,
@@ -31,7 +31,7 @@ credential store across chat, image, and decision providers.
 ## Quick start
 
 ```ts
-import { choice, createBuiltinJevModels, noul, score } from "jev-sdk";
+import { choice, createBuiltinJevModels, noul, score } from "@geminixiang/jev";
 
 const models = createBuiltinJevModels(); // typesafe, openrouter, cloudflare
 const model = models.getModel("openrouter", "jev-latest")!;
@@ -89,7 +89,7 @@ await models.evaluate(model, request, {
 ### Custom providers
 
 ```ts
-import { createJevProvider, openrouterDecisionsApi } from "jev-sdk";
+import { createJevProvider, openrouterDecisionsApi } from "@geminixiang/jev";
 import { envApiKeyAuth } from "@earendil-works/pi-ai";
 
 const proxy = createJevProvider({
