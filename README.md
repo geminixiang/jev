@@ -178,18 +178,6 @@ Implement `JevApiImpl` for a new wire protocol; the three built-in ones live und
 > not the classic `/ai/run/{model_name}` path native `@cf/...` models use — see
 > [developers.cloudflare.com/ai/models/typesafe/jev/](https://developers.cloudflare.com/ai/models/typesafe/jev/).
 
-## Errors
-
-| Class | When | Retried |
-|---|---|---|
-| `JevConfigError` | malformed question, unknown provider | — |
-| `JevAuthError` | provider has no usable credential | — |
-| `JevAPIError` | non-2xx; `.status`, `.body`, `.headers` | 408 / 429 / 5xx |
-| `JevResponseError` | 2xx but the body is not an answers map | — |
-| `JevConnectionError` | DNS / socket failure | yes |
-| `JevTimeoutError` | `timeoutMs` exceeded | yes |
-| `JevAbortError` | caller's `AbortSignal` fired | — |
-
 ## Development
 
 ```sh
