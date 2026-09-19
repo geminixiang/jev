@@ -67,8 +67,11 @@ export interface ChoiceAnswer<T extends ChoiceCriteria = ChoiceCriteria> {
   type: "choice";
   choice: keyof T & string;
   probabilities: { [K in keyof T]: number };
-  /** 0..1 statistic over `probabilities`; low = no option clearly fits. */
-  confidence: number;
+  /**
+   * 0..1 statistic over `probabilities`; low = no option clearly fits.
+   * Omitted by backends that do not report it (e.g. Vercel AI Gateway).
+   */
+  confidence?: number;
 }
 
 export interface ScoreAnswer {
@@ -79,7 +82,8 @@ export interface ScoreAnswer {
   probabilities: Record<string, number>;
   /** index -> rubric text, as echoed by the API. */
   legend?: Record<string, Entry>;
-  confidence: number;
+  /** Omitted by backends that do not report it (e.g. Vercel AI Gateway). */
+  confidence?: number;
 }
 
 export type Answer = NoulAnswer | ChoiceAnswer | ScoreAnswer;

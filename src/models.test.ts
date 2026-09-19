@@ -14,6 +14,7 @@ import {
   openrouterProvider,
   score,
   typesafeProvider,
+  vercelProvider,
 } from "./index.js";
 import type { Fetch, JevModel } from "./types.js";
 
@@ -56,9 +57,11 @@ describe("catalog", () => {
     expect(models.getModel("typesafe", "jev-1.13")?.slug).toBe("jev-1.13");
     expect(models.getModel("openrouter", "jev-1.13")?.slug).toBe("~typesafe/jev-1.13");
     expect(models.getModel("cloudflare", "jev-latest")?.slug).toBe("typesafe/jev");
+    expect(models.getModel("vercel", "jev-latest")?.slug).toBe("typesafe-ai/jev");
     expect(models.getProviders().map((p) => p.id)).toEqual([
       "typesafe",
       "openrouter",
+      "vercel",
       "cloudflare",
     ]);
   });
@@ -322,5 +325,61 @@ describe("custom providers", () => {
     expect(typesafeProvider().id).toBe("typesafe");
     expect(openrouterProvider().id).toBe("openrouter");
     expect(cloudflareProvider().id).toBe("cloudflare");
+    expect(vercelProvider().id).toBe("vercel");
+  });
+});
+
+describe("vercel provider", () => {
+  it("sends gateway headers, boolean-named noul questions, and reads confidence from providerMetadata", async () => {
+    const fetch = vi.fn<Fetch>(async () =>
+      jsonResponse({
+        answers: {
+          urgent: { type: "boolean", probability: 0.9 },
+          dept: { type: "choice", choice: "billing", probabilities: { billing: 0.8, tech: 0.2 } },
+          mood: { type: "score", score: 1.2, probabilities: { "0": 0.1, "1": 0.6, "2": 0.3 } },
+        },
+        usage: { inputTokens: 350, outputTokens: 61 },
+        providerMetadata: { typesafe: { confidence: { dept: 1, mood: 0.64 } } },
+      }),
+    );
+    const models = createBuiltinJevModels({
+      authContext: env({ AI_GATEWAY_API_KEY: "vk" }),
+      fetch,
+    });
+    const result = await models.evaluate(models.getModel("vercel", "jev-latest") as JevModel, {
+      state: "x",
+      questions,
+    });
+
+    const [url, init] = fetch.mock.calls[0]!;
+    expect(url).toBe("https://ai-gateway.vercel.sh/v4/ai/evaluation-model");
+    const headers = init?.headers as Record<string, string>;
+    expect(headers["ai-gateway-protocol-version"]).toBe("0.0.1");
+    expect(headers["ai-evaluation-model-specification-version"]).toBe("4");
+    expect(headers["ai-model-id"]).toBe("typesafe-ai/jev");
+    expect(headers.Authorization).toBe("Bearer vk");
+    expect(JSON.parse(init?.body as string).questions.urgent.type).toBe("boolean");
+
+    expect(result.answers.urgent.noul).toBe(0.9);
+    expect(result.answers.dept.confidence).toBe(1);
+    expect(result.answers.mood.confidence).toBe(0.64);
+    expect(result.usage.input).toBe(350);
+  });
+
+  it("falls back to VERCEL_API_KEY when AI_GATEWAY_API_KEY is unset", async () => {
+    const fetch = vi.fn<Fetch>(async () =>
+      jsonResponse({ answers: { urgent: { type: "boolean", probability: 0.5 } } }),
+    );
+    const models = createBuiltinJevModels({
+      authContext: env({ VERCEL_API_KEY: "legacy" }),
+      fetch,
+    });
+    await models.evaluate(models.getModel("vercel", "jev-latest") as JevModel, {
+      state: "x",
+      questions: { urgent: noul("?") },
+    });
+    expect((fetch.mock.calls[0]?.[1]?.headers as Record<string, string>).Authorization).toBe(
+      "Bearer legacy",
+    );
   });
 });

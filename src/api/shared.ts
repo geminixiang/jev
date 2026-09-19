@@ -77,14 +77,16 @@ export function toAnswers<Qs extends Questions>(
       throw new JevResponseError(provider, `response missing answer for "${name}"`, wire);
     }
     const a = raw as Record<string, unknown>;
-    if (a.type === "noul") {
-      out[name] = { type: "noul", noul: num(a.noul) };
+    // "noul" (TypeSafe/OpenRouter wire name) and "boolean" (Vercel AI Gateway's
+    // AI SDK naming) are the same question type; both normalise to `noul`.
+    if (a.type === "noul" || a.type === "boolean") {
+      out[name] = { type: "noul", noul: num(a.noul ?? a.probability) };
     } else if (a.type === "choice") {
       out[name] = {
         type: "choice",
         choice: String(a.choice ?? ""),
         probabilities: (a.probabilities as Record<string, number>) ?? {},
-        confidence: num(a.confidence),
+        ...(typeof a.confidence === "number" ? { confidence: a.confidence } : {}),
       };
     } else if (a.type === "score") {
       out[name] = {
@@ -92,14 +94,13 @@ export function toAnswers<Qs extends Questions>(
         score: num(a.score),
         probabilities: (a.probabilities as Record<string, number>) ?? {},
         ...(a.legend ? { legend: a.legend as Record<string, never> } : {}),
-        confidence: num(a.confidence),
+        ...(typeof a.confidence === "number" ? { confidence: a.confidence } : {}),
       };
     } else {
-      throw new JevAPIError(
+      throw new JevResponseError(
         provider,
-        502,
         `answer "${name}" has unknown type ${String(a.type)}`,
-        new Headers(),
+        wire,
       );
     }
   }

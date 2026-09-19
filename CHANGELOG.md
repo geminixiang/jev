@@ -1,5 +1,11 @@
 # @geminixiang/jev
 
+## 0.3.0
+
+### Minor Changes
+
+- Add a `vercel` provider for Jev through Vercel AI Gateway's evaluation modality (`AI_GATEWAY_API_KEY` / `VERCEL_API_KEY`). Its wire format differs from TypeSafe/OpenRouter (`boolean` instead of `noul`, camelCase usage, confidence under `providerMetadata.typesafe.confidence`); the provider normalises all of it to the same `Answers`/`JevUsage` shape. `ChoiceAnswer.confidence` and `ScoreAnswer.confidence` are now optional to reflect that not every backend reports it.
+
 ## 0.2.0
 
 ### Minor Changes

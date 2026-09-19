@@ -15,8 +15,13 @@ Jev answers typed questions about a *state* with calibrated probabilities:
 | Question | Answer |
 |---|---|
 | `noul` | probability that the answer is yes, 0–1 |
-| `choice` | one option from a set you define, with a probability per option and a `confidence` |
-| `score` | a position on an ordered rubric, with a probability per level and a `confidence` |
+| `choice` | one option from a set you define, with a probability per option and (where the backend reports it) a `confidence` |
+| `score` | a position on an ordered rubric, with a probability per level and (where the backend reports it) a `confidence` |
+
+`confidence` is optional: Vercel AI Gateway's evaluation modality does not put it on the
+answer (it rides in `providerMetadata.typesafe.confidence` on the wire; the Vercel
+provider reads it and fills the same field), so treat it as possibly absent when writing
+backend-agnostic code.
 
 ## Install
 
@@ -65,6 +70,7 @@ as the [TypeSafe API](https://docs.typesafe.ai/primitives/advanced) does.
 | `typesafe` | `api.typesafe.ai/v1/systemone` | `TYPESAFE_API_KEY` |
 | `openrouter` | `openrouter.ai/api/alpha/decisions` | `OPENROUTER_API_KEY` |
 | `cloudflare` | Workers AI REST `…/ai/run/typesafe/jev` | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` |
+| `vercel` | Vercel AI Gateway evaluation modality | `AI_GATEWAY_API_KEY` (or `VERCEL_API_KEY`) |
 
 Model ids are provider-neutral (`jev-latest`, `jev-1.13`); each catalog entry carries the
 slug its backend expects. A stored credential wins over the env var, as in pi-ai.
